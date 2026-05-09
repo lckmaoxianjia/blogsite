@@ -287,3 +287,67 @@ export async function getPopularTags(limit = 15) {
     take: limit,
   });
 }
+
+// --- Carousel ---
+
+export async function getCarouselItems() {
+  return prisma.carouselItem.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+  });
+}
+
+export async function getAllCarouselItems() {
+  return prisma.carouselItem.findMany({ orderBy: { sortOrder: "asc" } });
+}
+
+export async function saveCarouselItem(data: {
+  id?: number;
+  imageUrl: string;
+  linkUrl: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}) {
+  if (data.id) {
+    const item = await prisma.carouselItem.update({
+      where: { id: data.id },
+      data: {
+        imageUrl: data.imageUrl,
+        linkUrl: data.linkUrl,
+        sortOrder: data.sortOrder ?? 0,
+        isActive: data.isActive ?? true,
+      },
+    });
+    revalidatePath("/");
+    revalidatePath("/admin/carousel");
+    return item;
+  }
+  const item = await prisma.carouselItem.create({
+    data: {
+      imageUrl: data.imageUrl,
+      linkUrl: data.linkUrl,
+      sortOrder: data.sortOrder ?? 0,
+      isActive: data.isActive ?? true,
+    },
+  });
+  revalidatePath("/");
+  revalidatePath("/admin/carousel");
+  return item;
+}
+
+export async function deleteCarouselItem(id: number) {
+  await prisma.carouselItem.delete({ where: { id } });
+  revalidatePath("/");
+  revalidatePath("/admin/carousel");
+}
+
+export async function reorderCarouselItems(items: { id: number; sortOrder: number }[]) {
+  for (const item of items) {
+    await prisma.carouselItem.update({
+      where: { id: item.id },
+      data: { sortOrder: item.sortOrder },
+    });
+  }
+  revalidatePath("/");
+  revalidatePath("/admin/carousel");
+}
