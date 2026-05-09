@@ -48,7 +48,7 @@ export function Carousel({ items }: { items: CarouselItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <section className="w-full mb-12">
+    <section className="max-w-5xl mx-auto px-4 mb-10">
       <div
         className="relative w-full h-56 sm:h-72 md:h-96 lg:h-[480px] rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 shadow-2xl group"
         onMouseEnter={() => setPaused(true)}
