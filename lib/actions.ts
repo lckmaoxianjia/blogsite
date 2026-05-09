@@ -20,7 +20,10 @@ export async function getPosts({
   const [posts, total] = await Promise.all([
     prisma.post.findMany({
       where: { status },
-      include: { tags: { include: { tag: true } } },
+      include: {
+        tags: { include: { tag: true } },
+        _count: { select: { comments: true } },
+      },
       orderBy: { publishedAt: "desc" },
       skip,
       take: pageSize,
@@ -146,7 +149,7 @@ export async function getPostsByTag(tag: string, page = 1, pageSize = 10) {
         status: "PUBLISHED",
         tags: { some: { tag: { slug: tag } } },
       },
-      include: { tags: { include: { tag: true } } },
+      include: { tags: { include: { tag: true } }, _count: { select: { comments: true } } },
       orderBy: { publishedAt: "desc" },
       skip,
       take: pageSize,
@@ -207,7 +210,7 @@ export async function searchPosts(query: string, page = 1, pageSize = 10) {
           { content: { contains: query } },
         ],
       },
-      include: { tags: { include: { tag: true } } },
+      include: { tags: { include: { tag: true } }, _count: { select: { comments: true } } },
       orderBy: { publishedAt: "desc" },
       skip,
       take: pageSize,
@@ -230,6 +233,57 @@ export async function getRecentPosts(limit = 20) {
     where: { status: "PUBLISHED" },
     include: { tags: { include: { tag: true } } },
     orderBy: { publishedAt: "desc" },
+    take: limit,
+  });
+}
+
+export async function incrementViewCount(id: number) {
+  await prisma.post.update({ where: { id }, data: { viewCount: { increment: 1 } } });
+}
+
+export type PostWithCommentCount = Post & {
+  tags: (PostTag & { tag: Tag })[];
+  _count: { comments: number };
+};
+
+export async function getRelatedPosts(postId: number, tagIds: number[], limit = 3) {
+  if (tagIds.length === 0) return [];
+  return prisma.post.findMany({
+    where: {
+      status: "PUBLISHED",
+      id: { not: postId },
+      tags: { some: { tagId: { in: tagIds } } },
+    },
+    include: { tags: { include: { tag: true } } },
+    orderBy: { publishedAt: "desc" },
+    take: limit,
+  });
+}
+
+export async function getArchive() {
+  const posts = await prisma.post.findMany({
+    where: { status: "PUBLISHED" },
+    select: { id: true, title: true, slug: true, publishedAt: true },
+    orderBy: { publishedAt: "desc" },
+  });
+
+  const grouped: Record<string, { year: number; month: number; posts: typeof posts }> = {};
+  for (const p of posts) {
+    if (!p.publishedAt) continue;
+    const d = new Date(p.publishedAt);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!grouped[key]) {
+      grouped[key] = { year: d.getFullYear(), month: d.getMonth() + 1, posts: [] };
+    }
+    grouped[key].posts.push(p);
+  }
+  return Object.values(grouped).sort((a, b) => b.year - a.year || b.month - a.month);
+}
+
+export async function getPopularTags(limit = 15) {
+  return prisma.tag.findMany({
+    include: { _count: { select: { posts: true } } },
+    orderBy: { posts: { _count: "desc" } },
     take: limit,
   });
 }

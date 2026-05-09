@@ -27,6 +27,12 @@ export function Header() {
           >
             标签
           </Link>
+          <Link
+            href="/archive"
+            className="hidden sm:block text-sm text-gray-600 dark:text-gray-400 hover:text-accent transition-colors px-2 py-1"
+          >
+            归档
+          </Link>
           <SearchBar />
           <ThemeToggle />
         </nav>
