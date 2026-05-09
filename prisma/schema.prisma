@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id          Int        @id @default(autoincrement())
+  title       String     @db.VarChar(255)
+  slug        String     @unique @db.VarChar(255)
+  content     String     @db.MediumText
+  excerpt     String?    @db.VarChar(500)
+  coverImage  String?    @db.VarChar(500)
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tags     PostTag[]
+  comments Comment[]
+
+  @@index([status, publishedAt])
+  @@fulltext([title, content])
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Tag {
+  id   Int    @id @default(autoincrement())
+  name String @unique @db.VarChar(100)
+  slug String @unique @db.VarChar(100)
+
+  posts PostTag[]
+
+  @@index([slug])
+}
+
+model PostTag {
+  postId Int
+  tagId  Int
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
+
+model Comment {
+  id            Int       @id @default(autoincrement())
+  postId        Int
+  authorName    String    @db.VarChar(100)
+  authorEmail   String?   @db.VarChar(255)
+  authorWebsite String?   @db.VarChar(500)
+  content       String    @db.Text
+  createdAt     DateTime  @default(now())
+  isApproved    Boolean   @default(true)
+  parentId      Int?
+
+  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+}

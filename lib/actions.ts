@@ -1,0 +1,235 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "./prisma";
+import { slugify } from "./utils";
+import type { Post, Tag, PostTag } from "@prisma/client";
+
+export type PostWithTags = Post & { tags: (PostTag & { tag: Tag })[] };
+
+export async function getPosts({
+  status = "PUBLISHED",
+  page = 1,
+  pageSize = 10,
+}: {
+  status?: "DRAFT" | "PUBLISHED";
+  page?: number;
+  pageSize?: number;
+}) {
+  const skip = (page - 1) * pageSize;
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where: { status },
+      include: { tags: { include: { tag: true } } },
+      orderBy: { publishedAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.post.count({ where: { status } }),
+  ]);
+  return { posts, total, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getPostBySlug(slug: string) {
+  return prisma.post.findUnique({
+    where: { slug },
+    include: { tags: { include: { tag: true } } },
+  });
+}
+
+export async function getPostById(id: number) {
+  return prisma.post.findUnique({
+    where: { id },
+    include: { tags: { include: { tag: true } } },
+  });
+}
+
+export async function savePost(data: {
+  id?: number;
+  title: string;
+  content: string;
+  excerpt?: string;
+  coverImage?: string;
+  status: "DRAFT" | "PUBLISHED";
+  tagNames: string[];
+}) {
+  const slug = slugify(data.title);
+  const tags = await upsertTags(data.tagNames);
+
+  if (data.id) {
+    const post = await prisma.post.update({
+      where: { id: data.id },
+      data: {
+        title: data.title,
+        slug,
+        content: data.content,
+        excerpt: data.excerpt || null,
+        coverImage: data.coverImage || null,
+        status: data.status,
+        publishedAt: data.status === "PUBLISHED" ? new Date() : undefined,
+        tags: {
+          deleteMany: {},
+          create: tags.map((t) => ({ tagId: t.id })),
+        },
+      },
+    });
+    revalidatePath("/");
+    revalidatePath(`/posts/${slug}`);
+    revalidatePath("/admin");
+    return post;
+  } else {
+    const post = await prisma.post.create({
+      data: {
+        title: data.title,
+        slug,
+        content: data.content,
+        excerpt: data.excerpt || null,
+        coverImage: data.coverImage || null,
+        status: data.status,
+        publishedAt: data.status === "PUBLISHED" ? new Date() : null,
+        tags: {
+          create: tags.map((t) => ({ tagId: t.id })),
+        },
+      },
+    });
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return post;
+  }
+}
+
+export async function deletePost(id: number) {
+  await prisma.post.delete({ where: { id } });
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+async function upsertTags(names: string[]): Promise<Tag[]> {
+  const tags: Tag[] = [];
+  for (const name of names) {
+    const slug = slugify(name);
+    const tag = await prisma.tag.upsert({
+      where: { slug },
+      update: {},
+      create: { name, slug },
+    });
+    tags.push(tag);
+  }
+  return tags;
+}
+
+export async function getAllTags() {
+  return prisma.tag.findMany({
+    include: { _count: { select: { posts: true } } },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function createTag(name: string) {
+  const tag = await prisma.tag.create({
+    data: { name, slug: slugify(name) },
+  });
+  revalidatePath("/admin/tags");
+  return tag;
+}
+
+export async function deleteTag(id: number) {
+  await prisma.tag.delete({ where: { id } });
+  revalidatePath("/admin/tags");
+}
+
+export async function getPostsByTag(tag: string, page = 1, pageSize = 10) {
+  const skip = (page - 1) * pageSize;
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        tags: { some: { tag: { slug: tag } } },
+      },
+      include: { tags: { include: { tag: true } } },
+      orderBy: { publishedAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.post.count({
+      where: {
+        status: "PUBLISHED",
+        tags: { some: { tag: { slug: tag } } },
+      },
+    }),
+  ]);
+  return { posts, total, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getComments(postId: number) {
+  return prisma.comment.findMany({
+    where: { postId, isApproved: true, parentId: null },
+    include: {
+      replies: {
+        where: { isApproved: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function addComment(data: {
+  postId: number;
+  authorName: string;
+  authorEmail?: string;
+  authorWebsite?: string;
+  content: string;
+  parentId?: number;
+}) {
+  const comment = await prisma.comment.create({
+    data: {
+      postId: data.postId,
+      authorName: data.authorName,
+      authorEmail: data.authorEmail || null,
+      authorWebsite: data.authorWebsite || null,
+      content: data.content,
+      parentId: data.parentId || null,
+    },
+  });
+  revalidatePath(`/posts/${data.postId}`);
+  return comment;
+}
+
+export async function searchPosts(query: string, page = 1, pageSize = 10) {
+  const skip = (page - 1) * pageSize;
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        OR: [
+          { title: { contains: query } },
+          { content: { contains: query } },
+        ],
+      },
+      include: { tags: { include: { tag: true } } },
+      orderBy: { publishedAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.post.count({
+      where: {
+        status: "PUBLISHED",
+        OR: [
+          { title: { contains: query } },
+          { content: { contains: query } },
+        ],
+      },
+    }),
+  ]);
+  return { posts, total, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getRecentPosts(limit = 20) {
+  return prisma.post.findMany({
+    where: { status: "PUBLISHED" },
+    include: { tags: { include: { tag: true } } },
+    orderBy: { publishedAt: "desc" },
+    take: limit,
+  });
+}
