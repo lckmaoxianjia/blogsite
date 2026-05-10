@@ -35,8 +35,9 @@ export default async function CategoryPage({
     getCategoryPath(slug),
   ]);
 
-  if (!category || (posts.length === 0 && page === 1 && category._count.posts === 0))
-    notFound();
+  if (!category) notFound();
+
+  const isEmpty = category.children.length === 0 && posts.length === 0;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
@@ -86,9 +87,9 @@ export default async function CategoryPage({
         </div>
       )}
 
-      {/* Post list */}
-      {posts.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 py-20 text-center">暂无文章</p>
+      {/* Content */}
+      {isEmpty ? (
+        <p className="text-gray-500 dark:text-gray-400 py-20 text-center">暂无内容</p>
       ) : (
         <>
           {posts.map((post) => (
