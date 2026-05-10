@@ -7,12 +7,13 @@ export function formatDate(date: Date): string {
 }
 
 export function slugify(text: string): string {
-  return text
+  const slug = text
     .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
+    .replace(/[^\w\s一-鿿㐀-䶿-]/g, "")
     .replace(/[\s_]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .substring(0, 200);
+  return slug || encodeURIComponent(text).substring(0, 200);
 }
 
 export function cn(...classes: (string | undefined | false)[]): string {
