@@ -114,8 +114,11 @@ export async function deletePost(id: number) {
 
 export async function getAllCategories() {
   return prisma.category.findMany({
-    include: { _count: { select: { posts: true } }, children: { select: { id: true, name: true } } },
-    orderBy: { name: "asc" },
+    include: {
+      _count: { select: { posts: true } },
+      children: { select: { id: true, name: true, sortOrder: true } },
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 }
 
@@ -123,9 +126,12 @@ export async function getCategoryTree() {
   const all = await prisma.category.findMany({
     include: {
       _count: { select: { posts: true } },
-      children: { select: { id: true, name: true, slug: true } },
+      children: {
+        select: { id: true, name: true, slug: true, sortOrder: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      },
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
   return all.filter((c) => !c.parentId);
 }
@@ -134,7 +140,10 @@ export async function getCategoryBySlug(slug: string) {
   return prisma.category.findUnique({
     where: { slug },
     include: {
-      children: { select: { id: true, name: true, slug: true } },
+      children: {
+        select: { id: true, name: true, slug: true, sortOrder: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      },
       _count: { select: { posts: true } },
     },
   });
@@ -143,8 +152,38 @@ export async function getCategoryBySlug(slug: string) {
 export async function getCategoryById(id: number) {
   return prisma.category.findUnique({
     where: { id },
-    include: { children: { select: { id: true, name: true, slug: true } } },
+    include: {
+      children: {
+        select: { id: true, name: true, slug: true, sortOrder: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      },
+    },
   });
+}
+
+export async function getCategoryPath(slug: string) {
+  const category = await prisma.category.findUnique({ where: { slug } });
+  if (!category) return [];
+  const path = [category];
+  let current = category;
+  while (current.parentId) {
+    const parent = await prisma.category.findUnique({ where: { id: current.parentId } });
+    if (!parent) break;
+    path.unshift(parent);
+    current = parent;
+  }
+  return path;
+}
+
+export async function reorderCategories(items: { id: number; sortOrder: number }[]) {
+  for (const item of items) {
+    await prisma.category.update({
+      where: { id: item.id },
+      data: { sortOrder: item.sortOrder },
+    });
+  }
+  revalidatePath("/admin/categories");
+  revalidatePath("/");
 }
 
 export async function createCategory(data: { name: string; parentId?: number | null }) {

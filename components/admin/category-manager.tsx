@@ -1,31 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createCategory, updateCategory, deleteCategory } from "@/lib/actions";
-import { X, Plus, Edit2, Check, FolderTree, ChevronRight } from "lucide-react";
+import { createCategory, updateCategory, deleteCategory, reorderCategories } from "@/lib/actions";
+import { X, Plus, Edit2, Check, FolderTree, ChevronRight, GripVertical } from "lucide-react";
 
 type CategoryData = {
   id: number;
   name: string;
   slug: string;
   parentId: number | null;
+  sortOrder: number;
   _count: { posts: number };
-  children: { id: number; name: string }[];
+  children: { id: number; name: string; sortOrder: number }[];
 };
 
 export function CategoryManager({
-  categories,
+  categories: initialCategories,
 }: {
   categories: CategoryData[];
 }) {
   const router = useRouter();
+  const [categories, setCategories] = useState(initialCategories);
   const [newName, setNewName] = useState("");
   const [parentId, setParentId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editParentId, setEditParentId] = useState<number | null>(null);
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
 
   async function handleAdd() {
     if (!newName.trim()) return;
@@ -59,7 +63,69 @@ export function CategoryManager({
     setEditParentId(cat.parentId);
   }
 
-  const topLevel = categories.filter((c) => !c.parentId);
+  function getSiblings(parentId: number | null): CategoryData[] {
+    return categories.filter((c) => c.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  function handleDragStart(id: number) {
+    dragItem.current = id;
+  }
+
+  function handleDragEnter(id: number) {
+    dragOverItem.current = id;
+  }
+
+  async function handleDragEnd() {
+    const fromId = dragItem.current;
+    const toId = dragOverItem.current;
+    if (!fromId || !toId || fromId === toId) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
+    }
+
+    const fromCat = categories.find((c) => c.id === fromId);
+    const toCat = categories.find((c) => c.id === toId);
+    if (!fromCat || !toCat || fromCat.parentId !== toCat.parentId) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
+    }
+
+    const siblings = getSiblings(fromCat.parentId);
+    const fromIdx = siblings.findIndex((c) => c.id === fromId);
+    const toIdx = siblings.findIndex((c) => c.id === toId);
+    if (fromIdx === -1 || toIdx === -1) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
+    }
+
+    const reordered = [...siblings];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    const updates = reordered.map((c, i) => ({
+      id: c.id,
+      sortOrder: i,
+    }));
+
+    // Optimistic UI
+    setCategories((prev) =>
+      prev.map((c) => {
+        const u = updates.find((u) => u.id === c.id);
+        return u ? { ...c, sortOrder: u.sortOrder } : c;
+      })
+    );
+
+    await reorderCategories(updates);
+    router.refresh();
+
+    dragItem.current = null;
+    dragOverItem.current = null;
+  }
+
+  const topLevel = getSiblings(null);
 
   return (
     <div>
@@ -117,30 +183,34 @@ export function CategoryManager({
                 await deleteCategory(id);
                 router.refresh();
               }}
+              onDragStart={handleDragStart}
+              onDragEnter={handleDragEnter}
+              onDragEnd={handleDragEnd}
             />
             {/* Children */}
-            {categories
-              .filter((c) => c.parentId === cat.id)
-              .map((child) => (
-                <div key={child.id} className="ml-8 mt-1">
-                  <CategoryRow
-                    cat={child}
-                    allCategories={categories}
-                    editingId={editingId}
-                    editName={editName}
-                    editParentId={editParentId}
-                    setEditName={setEditName}
-                    setEditParentId={setEditParentId}
-                    onStartEdit={startEdit}
-                    onSave={handleUpdate}
-                    onCancel={() => setEditingId(null)}
-                    onDelete={async (id) => {
-                      await deleteCategory(id);
-                      router.refresh();
-                    }}
-                  />
-                </div>
-              ))}
+            {getSiblings(cat.id).map((child) => (
+              <div key={child.id} className="ml-8 mt-1">
+                <CategoryRow
+                  cat={child}
+                  allCategories={categories}
+                  editingId={editingId}
+                  editName={editName}
+                  editParentId={editParentId}
+                  setEditName={setEditName}
+                  setEditParentId={setEditParentId}
+                  onStartEdit={startEdit}
+                  onSave={handleUpdate}
+                  onCancel={() => setEditingId(null)}
+                  onDelete={async (id) => {
+                    await deleteCategory(id);
+                    router.refresh();
+                  }}
+                  onDragStart={handleDragStart}
+                  onDragEnter={handleDragEnter}
+                  onDragEnd={handleDragEnd}
+                />
+              </div>
+            ))}
           </div>
         ))}
         {topLevel.length === 0 && (
@@ -163,6 +233,9 @@ function CategoryRow({
   onSave,
   onCancel,
   onDelete,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
 }: {
   cat: CategoryData;
   allCategories: CategoryData[];
@@ -175,6 +248,9 @@ function CategoryRow({
   onSave: (id: number) => void;
   onCancel: () => void;
   onDelete: (id: number) => void;
+  onDragStart: (id: number) => void;
+  onDragEnter: (id: number) => void;
+  onDragEnd: () => void;
 }) {
   const isEditing = editingId === cat.id;
   const topLevel = allCategories.filter((c) => !c.parentId && c.id !== cat.id);
@@ -219,8 +295,20 @@ function CategoryRow({
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 rounded-md border border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 transition-colors">
+    <div
+      className="flex items-center justify-between px-4 py-2.5 rounded-md border border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 transition-colors cursor-default"
+      draggable
+      onDragStart={() => onDragStart(cat.id)}
+      onDragEnter={() => onDragEnter(cat.id)}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => e.preventDefault()}
+    >
       <span className="flex items-center gap-1.5">
+        <span
+          className="text-gray-300 dark:text-gray-600 hover:text-gray-500 cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical size={14} />
+        </span>
         {cat.parentId && <ChevronRight size={12} className="text-gray-400" />}
         <span className="font-medium">{cat.name}</span>
         <span className="text-xs text-gray-400">
