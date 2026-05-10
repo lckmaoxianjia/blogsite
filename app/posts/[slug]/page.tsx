@@ -32,7 +32,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const post = await getPostBySlug(slug);
+  const decodedSlug = decodeURIComponent(slug);
+  const post = await getPostBySlug(decodedSlug);
   if (!post) return { title: "Not Found" };
 
   return {
@@ -54,7 +55,8 @@ export default async function PostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = await getPostBySlug(slug);
+  const decodedSlug = decodeURIComponent(slug);
+  const post = await getPostBySlug(decodedSlug);
   if (!post || post.status !== "PUBLISHED") notFound();
 
   await incrementViewCount(post.id);

@@ -14,7 +14,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const category = await getCategoryBySlug(slug);
+  const decodedSlug = decodeURIComponent(slug);
+  const category = await getCategoryBySlug(decodedSlug);
   if (!category) return { title: "Not Found" };
   return { title: category.name };
 }
@@ -27,12 +28,13 @@ export default async function CategoryPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { slug } = await params;
+  const decodedSlug = decodeURIComponent(slug);
   const sp = await searchParams;
   const page = Math.max(1, parseInt(sp.page || "1"));
   const [category, { posts, totalPages }, breadcrumbs] = await Promise.all([
-    getCategoryBySlug(slug),
-    getPostsByCategory(slug, page),
-    getCategoryPath(slug),
+    getCategoryBySlug(decodedSlug),
+    getPostsByCategory(decodedSlug, page),
+    getCategoryPath(decodedSlug),
   ]);
 
   if (!category) notFound();
