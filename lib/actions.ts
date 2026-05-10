@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
-import { slugify } from "./utils";
+import { slugify, generateId } from "./utils";
 import type { Post, Category, PostCategory } from "@prisma/client";
 
 export type PostWithCategories = Post & { categories: (PostCategory & { category: Category })[] };
@@ -16,7 +16,7 @@ export async function getPosts({
   status?: "DRAFT" | "PUBLISHED";
   page?: number;
   pageSize?: number;
-  categoryId?: number;
+  categoryId?: string;
 }) {
   const skip = (page - 1) * pageSize;
   const where: Record<string, unknown> = { status };
@@ -46,7 +46,7 @@ export async function getPostBySlug(slug: string) {
   });
 }
 
-export async function getPostById(id: number) {
+export async function getPostById(id: string) {
   return prisma.post.findUnique({
     where: { id },
     include: { categories: { include: { category: true } } },
@@ -54,13 +54,13 @@ export async function getPostById(id: number) {
 }
 
 export async function savePost(data: {
-  id?: number;
+  id?: string;
   title: string;
   content: string;
   excerpt?: string;
   coverImage?: string;
   status: "DRAFT" | "PUBLISHED";
-  categoryIds: number[];
+  categoryIds: string[];
 }) {
   const slug = slugify(data.title);
 
@@ -88,6 +88,7 @@ export async function savePost(data: {
   } else {
     const post = await prisma.post.create({
       data: {
+        id: generateId(),
         title: data.title,
         slug,
         content: data.content,
@@ -106,7 +107,7 @@ export async function savePost(data: {
   }
 }
 
-export async function deletePost(id: number) {
+export async function deletePost(id: string) {
   await prisma.post.delete({ where: { id } });
   revalidatePath("/");
   revalidatePath("/admin");
@@ -149,7 +150,7 @@ export async function getCategoryBySlug(slug: string) {
   });
 }
 
-export async function getCategoryById(id: number) {
+export async function getCategoryById(id: string) {
   return prisma.category.findUnique({
     where: { id },
     include: {
@@ -175,7 +176,7 @@ export async function getCategoryPath(slug: string) {
   return path;
 }
 
-export async function reorderCategories(items: { id: number; sortOrder: number }[]) {
+export async function reorderCategories(items: { id: string; sortOrder: number }[]) {
   for (const item of items) {
     await prisma.category.update({
       where: { id: item.id },
@@ -186,9 +187,10 @@ export async function reorderCategories(items: { id: number; sortOrder: number }
   revalidatePath("/");
 }
 
-export async function createCategory(data: { name: string; parentId?: number | null }) {
+export async function createCategory(data: { name: string; parentId?: string | null }) {
   const category = await prisma.category.create({
     data: {
+      id: generateId(),
       name: data.name,
       slug: slugify(data.name),
       parentId: data.parentId || null,
@@ -198,7 +200,7 @@ export async function createCategory(data: { name: string; parentId?: number | n
   return category;
 }
 
-export async function updateCategory(id: number, data: { name?: string; parentId?: number | null }) {
+export async function updateCategory(id: string, data: { name?: string; parentId?: string | null }) {
   const updateData: Record<string, unknown> = {};
   if (data.name !== undefined) {
     updateData.name = data.name;
@@ -215,7 +217,7 @@ export async function updateCategory(id: number, data: { name?: string; parentId
   return category;
 }
 
-export async function deleteCategory(id: number) {
+export async function deleteCategory(id: string) {
   await prisma.category.delete({ where: { id } });
   revalidatePath("/admin/categories");
 }
@@ -239,7 +241,7 @@ export async function getPostsByCategory(slug: string, page = 1, pageSize = 10) 
   return { posts: posts as PostWithCategories[], total, totalPages: Math.ceil(total / pageSize) };
 }
 
-export async function getComments(postId: number) {
+export async function getComments(postId: string) {
   return prisma.comment.findMany({
     where: { postId, isApproved: true, parentId: null },
     include: {
@@ -253,7 +255,7 @@ export async function getComments(postId: number) {
 }
 
 export async function addComment(data: {
-  postId: number;
+  postId: string;
   authorName: string;
   authorEmail?: string;
   authorWebsite?: string;
@@ -305,7 +307,7 @@ export async function getRecentPosts(limit = 20) {
   });
 }
 
-export async function incrementViewCount(id: number) {
+export async function incrementViewCount(id: string) {
   await prisma.post.update({ where: { id }, data: { viewCount: { increment: 1 } } });
 }
 
@@ -314,7 +316,7 @@ export type PostWithCommentCount = Post & {
   _count: { comments: number };
 };
 
-export async function getRelatedPosts(postId: number, categoryIds: number[], limit = 3) {
+export async function getRelatedPosts(postId: string, categoryIds: string[], limit = 3) {
   if (categoryIds.length === 0) return [];
   return prisma.post.findMany({
     where: {
@@ -350,7 +352,7 @@ export async function getAllCarouselItems() {
 }
 
 export async function saveCarouselItem(data: {
-  id?: number;
+  id?: string;
   imageUrl: string;
   linkUrl: string;
   sortOrder?: number;
@@ -372,6 +374,7 @@ export async function saveCarouselItem(data: {
   }
   const item = await prisma.carouselItem.create({
     data: {
+      id: generateId(),
       imageUrl: data.imageUrl,
       linkUrl: data.linkUrl,
       sortOrder: data.sortOrder ?? 0,
@@ -383,13 +386,13 @@ export async function saveCarouselItem(data: {
   return item;
 }
 
-export async function deleteCarouselItem(id: number) {
+export async function deleteCarouselItem(id: string) {
   await prisma.carouselItem.delete({ where: { id } });
   revalidatePath("/");
   revalidatePath("/admin/carousel");
 }
 
-export async function reorderCarouselItems(items: { id: number; sortOrder: number }[]) {
+export async function reorderCarouselItems(items: { id: string; sortOrder: number }[]) {
   for (const item of items) {
     await prisma.carouselItem.update({
       where: { id: item.id },

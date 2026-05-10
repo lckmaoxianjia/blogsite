@@ -17,7 +17,7 @@ export function CommentCard({
   isReply = false,
 }: {
   comment: Comment;
-  postId: number;
+  postId: string;
   isReply?: boolean;
 }) {
   return (

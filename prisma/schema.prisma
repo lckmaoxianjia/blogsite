@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Post {
-  id          Int        @id @default(autoincrement())
+  id          String     @id @db.VarChar(21)
   title       String     @db.VarChar(255)
   slug        String     @unique @db.VarChar(255)
   content     String     @db.MediumText
@@ -33,10 +33,10 @@ enum PostStatus {
 }
 
 model Category {
-  id        Int     @id @default(autoincrement())
+  id        String  @id @db.VarChar(21)
   name      String  @unique @db.VarChar(100)
   slug      String  @unique @db.VarChar(100)
-  parentId  Int?
+  parentId  String? @db.VarChar(21)
   sortOrder Int     @default(0)
 
   parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
@@ -50,8 +50,8 @@ model Category {
 }
 
 model PostCategory {
-  postId     Int
-  categoryId Int      @map("tagId")
+  postId     String   @db.VarChar(21)
+  categoryId String   @map("tagId") @db.VarChar(21)
   post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
@@ -61,7 +61,7 @@ model PostCategory {
 
 model Comment {
   id            Int       @id @default(autoincrement())
-  postId        Int
+  postId        String    @db.VarChar(21)
   authorName    String    @db.VarChar(100)
   authorEmail   String?   @db.VarChar(255)
   authorWebsite String?   @db.VarChar(500)
@@ -78,7 +78,7 @@ model Comment {
 }
 
 model CarouselItem {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @db.VarChar(21)
   imageUrl  String   @db.VarChar(500)
   linkUrl   String   @db.VarChar(500)
   sortOrder Int      @default(0)

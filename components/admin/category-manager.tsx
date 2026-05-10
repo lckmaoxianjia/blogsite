@@ -6,13 +6,13 @@ import { createCategory, updateCategory, deleteCategory, reorderCategories } fro
 import { X, Plus, Edit2, Check, FolderTree, ChevronRight, GripVertical } from "lucide-react";
 
 type CategoryData = {
-  id: number;
+  id: string;
   name: string;
   slug: string;
-  parentId: number | null;
+  parentId: string | null;
   sortOrder: number;
   _count: { posts: number };
-  children: { id: number; name: string; sortOrder: number }[];
+  children: { id: string; name: string; sortOrder: number }[];
 };
 
 export function CategoryManager({
@@ -23,13 +23,13 @@ export function CategoryManager({
   const router = useRouter();
   const [categories, setCategories] = useState(initialCategories);
   const [newName, setNewName] = useState("");
-  const [parentId, setParentId] = useState<number | null>(null);
+  const [parentId, setParentId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editParentId, setEditParentId] = useState<number | null>(null);
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
+  const [editParentId, setEditParentId] = useState<string | null>(null);
+  const dragItem = useRef<string | null>(null);
+  const dragOverItem = useRef<string | null>(null);
 
   async function handleAdd() {
     if (!newName.trim()) return;
@@ -46,7 +46,7 @@ export function CategoryManager({
     }
   }
 
-  async function handleUpdate(id: number) {
+  async function handleUpdate(id: string) {
     if (!editName.trim()) return;
     try {
       await updateCategory(id, { name: editName.trim(), parentId: editParentId });
@@ -63,15 +63,15 @@ export function CategoryManager({
     setEditParentId(cat.parentId);
   }
 
-  function getSiblings(parentId: number | null): CategoryData[] {
-    return categories.filter((c) => c.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  function getSiblings(parentIdVal: string | null): CategoryData[] {
+    return categories.filter((c) => c.parentId === parentIdVal).sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
-  function handleDragStart(id: number) {
+  function handleDragStart(id: string) {
     dragItem.current = id;
   }
 
-  function handleDragEnter(id: number) {
+  function handleDragEnter(id: string) {
     dragOverItem.current = id;
   }
 
@@ -110,7 +110,6 @@ export function CategoryManager({
       sortOrder: i,
     }));
 
-    // Optimistic UI
     setCategories((prev) =>
       prev.map((c) => {
         const u = updates.find((u) => u.id === c.id);
@@ -145,7 +144,7 @@ export function CategoryManager({
         />
         <select
           value={parentId ?? ""}
-          onChange={(e) => setParentId(e.target.value ? parseInt(e.target.value) : null)}
+          onChange={(e) => setParentId(e.target.value || null)}
           className="px-3 py-2 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:border-accent transition-colors"
         >
           <option value="">顶级目录</option>
@@ -187,7 +186,6 @@ export function CategoryManager({
               onDragEnter={handleDragEnter}
               onDragEnd={handleDragEnd}
             />
-            {/* Children */}
             {getSiblings(cat.id).map((child) => (
               <div key={child.id} className="ml-8 mt-1">
                 <CategoryRow
@@ -239,17 +237,17 @@ function CategoryRow({
 }: {
   cat: CategoryData;
   allCategories: CategoryData[];
-  editingId: number | null;
+  editingId: string | null;
   editName: string;
-  editParentId: number | null;
+  editParentId: string | null;
   setEditName: (v: string) => void;
-  setEditParentId: (v: number | null) => void;
+  setEditParentId: (v: string | null) => void;
   onStartEdit: (cat: CategoryData) => void;
-  onSave: (id: number) => void;
+  onSave: (id: string) => void;
   onCancel: () => void;
-  onDelete: (id: number) => void;
-  onDragStart: (id: number) => void;
-  onDragEnter: (id: number) => void;
+  onDelete: (id: string) => void;
+  onDragStart: (id: string) => void;
+  onDragEnter: (id: string) => void;
   onDragEnd: () => void;
 }) {
   const isEditing = editingId === cat.id;
@@ -268,7 +266,7 @@ function CategoryRow({
         />
         <select
           value={editParentId ?? ""}
-          onChange={(e) => setEditParentId(e.target.value ? parseInt(e.target.value) : null)}
+          onChange={(e) => setEditParentId(e.target.value || null)}
           className="px-2 py-1 text-xs rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none"
         >
           <option value="">顶级</option>

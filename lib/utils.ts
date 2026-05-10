@@ -6,6 +6,8 @@ export function formatDate(date: Date): string {
   }).format(date);
 }
 
+import { nanoid } from "nanoid";
+
 export function slugify(text: string): string {
   const slug = text
     .toLowerCase()
@@ -14,6 +16,10 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "")
     .substring(0, 200);
   return slug || encodeURIComponent(text).substring(0, 200);
+}
+
+export function generateId(): string {
+  return nanoid(21);
 }
 
 export function cn(...classes: (string | undefined | false)[]): string {

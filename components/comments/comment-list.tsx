@@ -8,7 +8,7 @@ export function CommentList({
   postId,
 }: {
   comments: CommentWithReplies[];
-  postId: number;
+  postId: string;
 }) {
   if (comments.length === 0) {
     return (

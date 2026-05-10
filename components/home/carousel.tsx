@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 interface CarouselItem {
-  id: number;
+  id: string;
   imageUrl: string;
   linkUrl: string;
   sortOrder: number;

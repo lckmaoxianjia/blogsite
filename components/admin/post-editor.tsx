@@ -7,11 +7,11 @@ import { savePost, getAllCategories } from "@/lib/actions";
 import type { Post, Category } from "@prisma/client";
 
 type CategoryData = {
-  id: number;
+  id: string;
   name: string;
   slug: string;
-  parentId: number | null;
-  children: { id: number; name: string }[];
+  parentId: string | null;
+  children: { id: string; name: string }[];
 };
 
 type PostData = Post & { categories: { category: Category }[] };
@@ -22,7 +22,7 @@ export function PostEditor({ post }: { post?: PostData | null }) {
   const [content, setContent] = useState(post?.content || "");
   const [excerpt, setExcerpt] = useState(post?.excerpt || "");
   const [coverImage, setCoverImage] = useState(post?.coverImage || "");
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
     post?.categories.map((c) => c.category.id) || []
   );
   const [allCategories, setAllCategories] = useState<CategoryData[]>([]);
@@ -62,7 +62,7 @@ export function PostEditor({ post }: { post?: PostData | null }) {
     }
   }
 
-  function toggleCategory(id: number) {
+  function toggleCategory(id: string) {
     setSelectedCategoryIds((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );

@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { saveCarouselItem, deleteCarouselItem, reorderCarouselItems } from "@/lib/actions";
 import { Plus, Trash2, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
 
+const NEW_ID = "__new__";
+
 interface CarouselItem {
-  id: number;
+  id: string;
   imageUrl: string;
   linkUrl: string;
   sortOrder: number;
@@ -15,7 +17,7 @@ interface CarouselItem {
 
 export function CarouselManager({ items: initialItems }: { items: CarouselItem[] }) {
   const [items, setItems] = useState(initialItems);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [saving, setSaving] = useState(false);
@@ -24,10 +26,10 @@ export function CarouselManager({ items: initialItems }: { items: CarouselItem[]
   const router = useRouter();
 
   const editing = editingId !== null ? items.find((i) => i.id === editingId) ?? null : null;
-  const isNew = editingId === -1;
+  const isNew = editingId === NEW_ID;
 
   function openNew() {
-    setEditingId(-1);
+    setEditingId(NEW_ID);
     setImageUrl("");
     setLinkUrl("");
   }
@@ -57,7 +59,7 @@ export function CarouselManager({ items: initialItems }: { items: CarouselItem[]
     router.refresh();
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     if (!confirm("确认删除？")) return;
     await deleteCarouselItem(id);
     setItems(items.filter((i) => i.id !== id));

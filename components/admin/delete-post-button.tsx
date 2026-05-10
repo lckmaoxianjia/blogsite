@@ -4,7 +4,7 @@ import { deletePost } from "@/lib/actions";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
-export function DeletePostButton({ postId }: { postId: number }) {
+export function DeletePostButton({ postId }: { postId: string }) {
   const [confirming, setConfirming] = useState(false);
 
   if (confirming) {

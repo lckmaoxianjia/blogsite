@@ -7,7 +7,7 @@ export function CommentForm({
   postId,
   parentId,
 }: {
-  postId: number;
+  postId: string;
   parentId?: number;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +84,7 @@ export function ReplyButton({
   postId,
   parentId,
 }: {
-  postId: number;
+  postId: string;
   parentId: number;
 }) {
   const [showForm, setShowForm] = useState(false);

@@ -2,7 +2,7 @@ import { getComments } from "@/lib/actions";
 import { CommentList } from "./comment-list";
 import { CommentForm } from "./comment-form";
 
-export async function CommentSection({ postId }: { postId: number }) {
+export async function CommentSection({ postId }: { postId: string }) {
   const comments = await getComments(postId);
 
   return (
