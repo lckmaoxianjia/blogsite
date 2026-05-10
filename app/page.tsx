@@ -1,11 +1,17 @@
 import Link from "next/link";
-import { getPosts, getPopularTags, getCarouselItems } from "@/lib/actions";
+import { getPosts, getCategoryTree, getCarouselItems } from "@/lib/actions";
 import { PostCard } from "@/components/posts/post-card";
 import { Pagination } from "@/components/ui/pagination";
 import { Carousel } from "@/components/home/carousel";
-import { ArrowRight, Tag } from "lucide-react";
+import { Folder, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+async function getHomeCategoryId() {
+  const { prisma } = await import("@/lib/prisma");
+  const home = await prisma.category.findUnique({ where: { slug: "shou-ye" } });
+  return home?.id;
+}
 
 export default async function HomePage({
   searchParams,
@@ -14,9 +20,10 @@ export default async function HomePage({
 }) {
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page || "1"));
-  const [{ posts, totalPages }, popularTags, carouselItems] = await Promise.all([
-    getPosts({ page, pageSize: 10 }),
-    getPopularTags(12),
+  const homeCategoryId = await getHomeCategoryId();
+  const [{ posts, totalPages }, topCategories, carouselItems] = await Promise.all([
+    getPosts({ page, pageSize: 10, categoryId: homeCategoryId ?? undefined }),
+    getCategoryTree(),
     getCarouselItems(),
   ]);
 
@@ -50,30 +57,34 @@ export default async function HomePage({
           <aside className="lg:w-64 shrink-0 space-y-8">
             <div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-1.5">
-                <Tag size={14} /> 热门标签
+                <Folder size={14} /> 文章目录
               </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {popularTags.map((tag) => (
-                  <Link
-                    key={tag.id}
-                    href={`/tags/${tag.slug}`}
-                    className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-accent hover:text-white transition-colors"
-                  >
-                    {tag.name}
-                  </Link>
+              <nav className="space-y-1">
+                {topCategories.map((cat) => (
+                  <div key={cat.id}>
+                    <Link
+                      href={`/categories/${cat.slug}`}
+                      className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 hover:text-accent transition-colors py-1"
+                    >
+                      {cat.name}
+                      <span className="text-xs text-gray-400">({cat._count.posts})</span>
+                    </Link>
+                    {cat.children.length > 0 && (
+                      <div className="ml-3 border-l border-gray-100 dark:border-gray-800 pl-3 space-y-0.5">
+                        {cat.children.map((child) => (
+                          <Link
+                            key={child.id}
+                            href={`/categories/${child.slug}`}
+                            className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-accent transition-colors py-0.5"
+                          >
+                            <ChevronRight size={10} />
+                            {child.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">快速链接</h3>
-              <nav className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
-                <Link href="/archive" className="flex items-center justify-between hover:text-accent transition-colors group">
-                  文章归档 <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Link>
-                <Link href="/tags" className="flex items-center justify-between hover:text-accent transition-colors group">
-                  所有标签 <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Link>
               </nav>
             </div>
           </aside>

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { Rss } from "lucide-react";
+import { getCategoryTree } from "@/lib/actions";
 
-export function Footer() {
+export async function Footer() {
+  const topCategories = await getCategoryTree();
+
   return (
     <footer className="border-t border-gray-100 dark:border-gray-800 mt-20">
       <div className="max-w-5xl mx-auto px-4 py-10">
@@ -13,12 +16,24 @@ export function Footer() {
             </p>
           </div>
           <div>
-            <h4 className="font-medium text-sm mb-3 text-gray-900 dark:text-gray-100">快速链接</h4>
+            <h4 className="font-medium text-sm mb-3 text-gray-900 dark:text-gray-100">文章目录</h4>
             <nav className="space-y-1.5 text-sm text-gray-500 dark:text-gray-400">
-              <Link href="/" className="block hover:text-accent transition-colors">首页</Link>
-              <Link href="/tags" className="block hover:text-accent transition-colors">标签</Link>
-              <Link href="/archive" className="block hover:text-accent transition-colors">归档</Link>
-              <Link href="/search" className="block hover:text-accent transition-colors">搜索</Link>
+              {topCategories.map((cat) => (
+                <div key={cat.id}>
+                  <Link href={`/categories/${cat.slug}`} className="block hover:text-accent transition-colors">
+                    {cat.name}
+                  </Link>
+                  {cat.children.map((child) => (
+                    <Link
+                      key={child.id}
+                      href={`/categories/${child.slug}`}
+                      className="block ml-3 text-xs hover:text-accent transition-colors mt-0.5"
+                    >
+                      {child.name}
+                    </Link>
+                  ))}
+                </div>
+              ))}
             </nav>
           </div>
           <div>

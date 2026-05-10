@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import type { PostWithTags } from "@/lib/actions";
+import type { PostWithCategories } from "@/lib/actions";
 import { Pencil } from "lucide-react";
 import { DeletePostButton } from "./delete-post-button";
 
-export function PostTable({ posts }: { posts: PostWithTags[] }) {
+export function PostTable({ posts }: { posts: PostWithCategories[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">

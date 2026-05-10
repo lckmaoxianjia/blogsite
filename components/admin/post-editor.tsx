@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MDEditor from "@uiw/react-md-editor";
-import { savePost } from "@/lib/actions";
-import type { Post, Tag } from "@prisma/client";
+import { savePost, getAllCategories } from "@/lib/actions";
+import type { Post, Category } from "@prisma/client";
 
-type PostData = Post & { tags: { tag: Tag }[] };
+type CategoryData = {
+  id: number;
+  name: string;
+  slug: string;
+  parentId: number | null;
+  children: { id: number; name: string }[];
+};
+
+type PostData = Post & { categories: { category: Category }[] };
 
 export function PostEditor({ post }: { post?: PostData | null }) {
   const router = useRouter();
@@ -14,17 +22,24 @@ export function PostEditor({ post }: { post?: PostData | null }) {
   const [content, setContent] = useState(post?.content || "");
   const [excerpt, setExcerpt] = useState(post?.excerpt || "");
   const [coverImage, setCoverImage] = useState(post?.coverImage || "");
-  const [tagInput, setTagInput] = useState(
-    post?.tags.map((t) => t.tag.name).join(", ") || ""
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
+    post?.categories.map((c) => c.category.id) || []
   );
+  const [allCategories, setAllCategories] = useState<CategoryData[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const tagNames = tagInput
-    .split(/[,，]/)
-    .map((t) => t.trim())
-    .filter(Boolean);
+  useEffect(() => {
+    getAllCategories().then((cats) =>
+      setAllCategories(cats as unknown as CategoryData[])
+    );
+  }, []);
 
   async function handleSave(status: "DRAFT" | "PUBLISHED") {
+    if (!title.trim()) return;
+    if (selectedCategoryIds.length === 0) {
+      alert("请至少选择一个目录");
+      return;
+    }
     setSaving(true);
     try {
       const result = await savePost({
@@ -34,7 +49,7 @@ export function PostEditor({ post }: { post?: PostData | null }) {
         excerpt,
         coverImage,
         status,
-        tagNames,
+        categoryIds: selectedCategoryIds,
       });
       if (!post?.id && result?.id) {
         router.push(`/admin/posts/${result.id}/edit`);
@@ -46,6 +61,14 @@ export function PostEditor({ post }: { post?: PostData | null }) {
       setSaving(false);
     }
   }
+
+  function toggleCategory(id: number) {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  }
+
+  const topLevel = allCategories.filter((c) => !c.parentId);
 
   return (
     <div className="space-y-5">
@@ -60,18 +83,61 @@ export function PostEditor({ post }: { post?: PostData | null }) {
       <div className="flex gap-4">
         <input
           type="text"
-          value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
-          placeholder="标签（逗号分隔）"
-          className="flex-1 px-3 py-2 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:border-accent transition-colors"
-        />
-        <input
-          type="text"
           value={coverImage}
           onChange={(e) => setCoverImage(e.target.value)}
           placeholder="封面图 URL"
           className="flex-1 px-3 py-2 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:border-accent transition-colors"
         />
+      </div>
+
+      {/* Category selector */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          选择目录（必选，可多选）
+        </p>
+        {topLevel.length === 0 ? (
+          <p className="text-xs text-gray-400">暂无目录，请先在目录管理中创建</p>
+        ) : (
+          <div className="space-y-2">
+            {topLevel.map((cat) => (
+              <div key={cat.id}>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategoryIds.includes(cat.id)}
+                    onChange={() => toggleCategory(cat.id)}
+                    className="rounded border-gray-300 text-accent focus:ring-accent"
+                  />
+                  <span className="text-sm font-medium">{cat.name}</span>
+                </label>
+                {allCategories.filter((c) => c.parentId === cat.id).length > 0 && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {allCategories
+                      .filter((c) => c.parentId === cat.id)
+                      .map((child) => (
+                        <label key={child.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategoryIds.includes(child.id)}
+                            onChange={() => toggleCategory(child.id)}
+                            className="rounded border-gray-300 text-accent focus:ring-accent"
+                          />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {child.name}
+                          </span>
+                        </label>
+                      ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {selectedCategoryIds.length > 0 && (
+          <p className="text-xs text-gray-400 mt-3">
+            已选择 {selectedCategoryIds.length} 个目录
+          </p>
+        )}
       </div>
 
       <input

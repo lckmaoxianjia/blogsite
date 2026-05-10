@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, PenLine, Tags, Image, Home } from "lucide-react";
+import { FileText, PenLine, FolderTree, Image, Home } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <p className="px-5 py-1 text-xs text-gray-500 uppercase tracking-wider mb-2">内容管理</p>
           <SidebarLink href="/admin" icon={<FileText size={16} />} label="文章列表" />
           <SidebarLink href="/admin/posts/new" icon={<PenLine size={16} />} label="写文章" />
-          <SidebarLink href="/admin/tags" icon={<Tags size={16} />} label="标签管理" />
+          <SidebarLink href="/admin/categories" icon={<FolderTree size={16} />} label="目录管理" />
           <SidebarLink href="/admin/carousel" icon={<Image size={16} />} label="轮播图" />
           <div className="mx-4 my-4 border-t border-gray-800" />
           <SidebarLink href="/" icon={<Home size={16} />} label="返回前台" />

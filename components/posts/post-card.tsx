@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Calendar, Clock, MessageCircle, Eye } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { getReadingTime } from "@/lib/markdown";
-import type { Post, Tag, PostTag } from "@prisma/client";
+import type { Post, Category, PostCategory } from "@prisma/client";
 
 type PostCardData = Post & {
-  tags: (PostTag & { tag: Tag })[];
+  categories: (PostCategory & { category: Category })[];
   _count?: { comments: number };
 };
 
@@ -51,15 +51,15 @@ export function PostCard({ post }: { post: PostCardData }) {
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 mb-2">
           {post.excerpt || post.content.replace(/[#*`>\-\[\]()!|]/g, "").replace(/\n+/g, " ").trim().substring(0, 200)}
         </p>
-        {post.tags.length > 0 && (
+        {post.categories.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {post.tags.map((pt) => (
+            {post.categories.map((pc) => (
               <Link
-                key={pt.tag.id}
-                href={`/tags/${pt.tag.slug}`}
+                key={pc.category.id}
+                href={`/categories/${pc.category.slug}`}
                 className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-accent hover:text-white transition-colors"
               >
-                {pt.tag.name}
+                {pc.category.name}
               </Link>
             ))}
           </div>

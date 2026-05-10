@@ -1,9 +1,9 @@
 import Link from "next/link";
-import type { Post, Tag, PostTag } from "@prisma/client";
+import type { Post, Category, PostCategory } from "@prisma/client";
 
-type PostWithTags = Post & { tags: (PostTag & { tag: Tag })[] };
+type PostWithCategories = Post & { categories: (PostCategory & { category: Category })[] };
 
-export function RelatedPosts({ posts }: { posts: PostWithTags[] }) {
+export function RelatedPosts({ posts }: { posts: PostWithCategories[] }) {
   if (posts.length === 0) return null;
 
   return (
@@ -26,14 +26,14 @@ export function RelatedPosts({ posts }: { posts: PostWithTags[] }) {
             <h3 className="font-medium text-sm group-hover:text-accent transition-colors line-clamp-2">
               {post.title}
             </h3>
-            {post.tags.length > 0 && (
+            {post.categories.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
-                {post.tags.slice(0, 2).map((pt) => (
+                {post.categories.slice(0, 2).map((pc) => (
                   <span
-                    key={pt.tag.id}
+                    key={pc.category.id}
                     className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500"
                   >
-                    {pt.tag.name}
+                    {pc.category.name}
                   </span>
                 ))}
               </div>

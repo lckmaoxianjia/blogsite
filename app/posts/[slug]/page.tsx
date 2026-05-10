@@ -61,8 +61,8 @@ export default async function PostPage({
 
   const toc = extractToc(post.content);
   const readingTime = getReadingTime(post.content);
-  const tagIds = post.tags.map((pt) => pt.tag.id);
-  const relatedPosts = await getRelatedPosts(post.id, tagIds, 3);
+  const categoryIds = post.categories.map((pc) => pc.category.id);
+  const relatedPosts = await getRelatedPosts(post.id, categoryIds, 3);
 
   return (
     <>
@@ -104,15 +104,15 @@ export default async function PostPage({
               <h1 className="text-3xl sm:text-4xl font-serif font-bold mb-5 leading-tight">
                 {post.title}
               </h1>
-              {post.tags.length > 0 && (
+              {post.categories.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {post.tags.map((pt) => (
+                  {post.categories.map((pc) => (
                     <Link
-                      key={pt.tag.id}
-                      href={`/tags/${pt.tag.slug}`}
+                      key={pc.category.id}
+                      href={`/categories/${pc.category.slug}`}
                       className="text-xs px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-accent hover:text-white transition-colors"
                     >
-                      {pt.tag.name}
+                      {pc.category.name}
                     </Link>
                   ))}
                 </div>

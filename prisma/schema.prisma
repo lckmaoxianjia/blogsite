@@ -20,8 +20,8 @@ model Post {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  tags     PostTag[]
-  comments Comment[]
+  categories PostCategory[]
+  comments   Comment[]
 
   @@index([status, publishedAt])
   @@fulltext([title, content])
@@ -32,23 +32,29 @@ enum PostStatus {
   PUBLISHED
 }
 
-model Tag {
-  id   Int    @id @default(autoincrement())
-  name String @unique @db.VarChar(100)
-  slug String @unique @db.VarChar(100)
+model Category {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique @db.VarChar(100)
+  slug     String  @unique @db.VarChar(100)
+  parentId Int?
 
-  posts PostTag[]
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  posts    PostCategory[]
 
   @@index([slug])
+  @@index([parentId])
+  @@map("Tag")
 }
 
-model PostTag {
-  postId Int
-  tagId  Int
-  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+model PostCategory {
+  postId     Int
+  categoryId Int      @map("tagId")
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@id([postId, tagId])
+  @@id([postId, categoryId])
+  @@map("PostTag")
 }
 
 model Comment {

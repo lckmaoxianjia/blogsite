@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Providers } from "./providers";
@@ -17,9 +18,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="min-h-screen flex flex-col">
         <Providers>
-          <Header />
+          <Suspense fallback={<div className="h-16 border-b" />}>
+            <Header />
+          </Suspense>
           <main className="flex-1">{children}</main>
-          <Footer />
+          <Suspense fallback={<div className="h-40 border-t" />}>
+            <Footer />
+          </Suspense>
         </Providers>
       </body>
     </html>

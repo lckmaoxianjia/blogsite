@@ -3,47 +3,53 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
 import { slugify } from "./utils";
-import type { Post, Tag, PostTag } from "@prisma/client";
+import type { Post, Category, PostCategory } from "@prisma/client";
 
-export type PostWithTags = Post & { tags: (PostTag & { tag: Tag })[] };
+export type PostWithCategories = Post & { categories: (PostCategory & { category: Category })[] };
 
 export async function getPosts({
   status = "PUBLISHED",
   page = 1,
   pageSize = 10,
+  categoryId,
 }: {
   status?: "DRAFT" | "PUBLISHED";
   page?: number;
   pageSize?: number;
+  categoryId?: number;
 }) {
   const skip = (page - 1) * pageSize;
+  const where: Record<string, unknown> = { status };
+  if (categoryId) {
+    where.categories = { some: { categoryId } };
+  }
   const [posts, total] = await Promise.all([
     prisma.post.findMany({
-      where: { status },
+      where,
       include: {
-        tags: { include: { tag: true } },
+        categories: { include: { category: true } },
         _count: { select: { comments: true } },
       },
       orderBy: { publishedAt: "desc" },
       skip,
       take: pageSize,
     }),
-    prisma.post.count({ where: { status } }),
+    prisma.post.count({ where }),
   ]);
-  return { posts, total, totalPages: Math.ceil(total / pageSize) };
+  return { posts: posts as PostWithCategories[], total, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function getPostBySlug(slug: string) {
   return prisma.post.findUnique({
     where: { slug },
-    include: { tags: { include: { tag: true } } },
+    include: { categories: { include: { category: true } } },
   });
 }
 
 export async function getPostById(id: number) {
   return prisma.post.findUnique({
     where: { id },
-    include: { tags: { include: { tag: true } } },
+    include: { categories: { include: { category: true } } },
   });
 }
 
@@ -54,10 +60,9 @@ export async function savePost(data: {
   excerpt?: string;
   coverImage?: string;
   status: "DRAFT" | "PUBLISHED";
-  tagNames: string[];
+  categoryIds: number[];
 }) {
   const slug = slugify(data.title);
-  const tags = await upsertTags(data.tagNames);
 
   if (data.id) {
     const post = await prisma.post.update({
@@ -70,9 +75,9 @@ export async function savePost(data: {
         coverImage: data.coverImage || null,
         status: data.status,
         publishedAt: data.status === "PUBLISHED" ? new Date() : undefined,
-        tags: {
+        categories: {
           deleteMany: {},
-          create: tags.map((t) => ({ tagId: t.id })),
+          create: data.categoryIds.map((categoryId) => ({ categoryId })),
         },
       },
     });
@@ -90,8 +95,8 @@ export async function savePost(data: {
         coverImage: data.coverImage || null,
         status: data.status,
         publishedAt: data.status === "PUBLISHED" ? new Date() : null,
-        tags: {
-          create: tags.map((t) => ({ tagId: t.id })),
+        categories: {
+          create: data.categoryIds.map((categoryId) => ({ categoryId })),
         },
       },
     });
@@ -107,61 +112,92 @@ export async function deletePost(id: number) {
   revalidatePath("/admin");
 }
 
-async function upsertTags(names: string[]): Promise<Tag[]> {
-  const tags: Tag[] = [];
-  for (const name of names) {
-    const slug = slugify(name);
-    const tag = await prisma.tag.upsert({
-      where: { slug },
-      update: {},
-      create: { name, slug },
-    });
-    tags.push(tag);
-  }
-  return tags;
-}
-
-export async function getAllTags() {
-  return prisma.tag.findMany({
-    include: { _count: { select: { posts: true } } },
+export async function getAllCategories() {
+  return prisma.category.findMany({
+    include: { _count: { select: { posts: true } }, children: { select: { id: true, name: true } } },
     orderBy: { name: "asc" },
   });
 }
 
-export async function createTag(name: string) {
-  const tag = await prisma.tag.create({
-    data: { name, slug: slugify(name) },
+export async function getCategoryTree() {
+  const all = await prisma.category.findMany({
+    include: {
+      _count: { select: { posts: true } },
+      children: { select: { id: true, name: true, slug: true } },
+    },
+    orderBy: { name: "asc" },
   });
-  revalidatePath("/admin/tags");
-  return tag;
+  return all.filter((c) => !c.parentId);
 }
 
-export async function deleteTag(id: number) {
-  await prisma.tag.delete({ where: { id } });
-  revalidatePath("/admin/tags");
+export async function getCategoryBySlug(slug: string) {
+  return prisma.category.findUnique({
+    where: { slug },
+    include: {
+      children: { select: { id: true, name: true, slug: true } },
+      _count: { select: { posts: true } },
+    },
+  });
 }
 
-export async function getPostsByTag(tag: string, page = 1, pageSize = 10) {
+export async function getCategoryById(id: number) {
+  return prisma.category.findUnique({
+    where: { id },
+    include: { children: { select: { id: true, name: true, slug: true } } },
+  });
+}
+
+export async function createCategory(data: { name: string; parentId?: number | null }) {
+  const category = await prisma.category.create({
+    data: {
+      name: data.name,
+      slug: slugify(data.name),
+      parentId: data.parentId || null,
+    },
+  });
+  revalidatePath("/admin/categories");
+  return category;
+}
+
+export async function updateCategory(id: number, data: { name?: string; parentId?: number | null }) {
+  const updateData: Record<string, unknown> = {};
+  if (data.name !== undefined) {
+    updateData.name = data.name;
+    updateData.slug = slugify(data.name);
+  }
+  if (data.parentId !== undefined) {
+    updateData.parentId = data.parentId;
+  }
+  const category = await prisma.category.update({
+    where: { id },
+    data: updateData,
+  });
+  revalidatePath("/admin/categories");
+  return category;
+}
+
+export async function deleteCategory(id: number) {
+  await prisma.category.delete({ where: { id } });
+  revalidatePath("/admin/categories");
+}
+
+export async function getPostsByCategory(slug: string, page = 1, pageSize = 10) {
   const skip = (page - 1) * pageSize;
+  const where = {
+    status: "PUBLISHED" as const,
+    categories: { some: { category: { slug } } },
+  };
   const [posts, total] = await Promise.all([
     prisma.post.findMany({
-      where: {
-        status: "PUBLISHED",
-        tags: { some: { tag: { slug: tag } } },
-      },
-      include: { tags: { include: { tag: true } }, _count: { select: { comments: true } } },
+      where,
+      include: { categories: { include: { category: true } }, _count: { select: { comments: true } } },
       orderBy: { publishedAt: "desc" },
       skip,
       take: pageSize,
     }),
-    prisma.post.count({
-      where: {
-        status: "PUBLISHED",
-        tags: { some: { tag: { slug: tag } } },
-      },
-    }),
+    prisma.post.count({ where }),
   ]);
-  return { posts, total, totalPages: Math.ceil(total / pageSize) };
+  return { posts: posts as PostWithCategories[], total, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function getComments(postId: number) {
@@ -201,37 +237,30 @@ export async function addComment(data: {
 
 export async function searchPosts(query: string, page = 1, pageSize = 10) {
   const skip = (page - 1) * pageSize;
+  const where = {
+    status: "PUBLISHED" as const,
+    OR: [
+      { title: { contains: query } },
+      { content: { contains: query } },
+    ],
+  };
   const [posts, total] = await Promise.all([
     prisma.post.findMany({
-      where: {
-        status: "PUBLISHED",
-        OR: [
-          { title: { contains: query } },
-          { content: { contains: query } },
-        ],
-      },
-      include: { tags: { include: { tag: true } }, _count: { select: { comments: true } } },
+      where,
+      include: { categories: { include: { category: true } }, _count: { select: { comments: true } } },
       orderBy: { publishedAt: "desc" },
       skip,
       take: pageSize,
     }),
-    prisma.post.count({
-      where: {
-        status: "PUBLISHED",
-        OR: [
-          { title: { contains: query } },
-          { content: { contains: query } },
-        ],
-      },
-    }),
+    prisma.post.count({ where }),
   ]);
-  return { posts, total, totalPages: Math.ceil(total / pageSize) };
+  return { posts: posts as PostWithCategories[], total, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function getRecentPosts(limit = 20) {
   return prisma.post.findMany({
     where: { status: "PUBLISHED" },
-    include: { tags: { include: { tag: true } } },
+    include: { categories: { include: { category: true } } },
     orderBy: { publishedAt: "desc" },
     take: limit,
   });
@@ -242,46 +271,26 @@ export async function incrementViewCount(id: number) {
 }
 
 export type PostWithCommentCount = Post & {
-  tags: (PostTag & { tag: Tag })[];
+  categories: (PostCategory & { category: Category })[];
   _count: { comments: number };
 };
 
-export async function getRelatedPosts(postId: number, tagIds: number[], limit = 3) {
-  if (tagIds.length === 0) return [];
+export async function getRelatedPosts(postId: number, categoryIds: number[], limit = 3) {
+  if (categoryIds.length === 0) return [];
   return prisma.post.findMany({
     where: {
       status: "PUBLISHED",
       id: { not: postId },
-      tags: { some: { tagId: { in: tagIds } } },
+      categories: { some: { categoryId: { in: categoryIds } } },
     },
-    include: { tags: { include: { tag: true } } },
+    include: { categories: { include: { category: true } } },
     orderBy: { publishedAt: "desc" },
     take: limit,
   });
 }
 
-export async function getArchive() {
-  const posts = await prisma.post.findMany({
-    where: { status: "PUBLISHED" },
-    select: { id: true, title: true, slug: true, publishedAt: true },
-    orderBy: { publishedAt: "desc" },
-  });
-
-  const grouped: Record<string, { year: number; month: number; posts: typeof posts }> = {};
-  for (const p of posts) {
-    if (!p.publishedAt) continue;
-    const d = new Date(p.publishedAt);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
-    if (!grouped[key]) {
-      grouped[key] = { year: d.getFullYear(), month: d.getMonth() + 1, posts: [] };
-    }
-    grouped[key].posts.push(p);
-  }
-  return Object.values(grouped).sort((a, b) => b.year - a.year || b.month - a.month);
-}
-
-export async function getPopularTags(limit = 15) {
-  return prisma.tag.findMany({
+export async function getPopularCategories(limit = 15) {
+  return prisma.category.findMany({
     include: { _count: { select: { posts: true } } },
     orderBy: { posts: { _count: "desc" } },
     take: limit,
